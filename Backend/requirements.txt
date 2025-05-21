@@ -2,3 +2,5 @@ Flask
 google-cloud-speech
 google-auth
 Flask-CORS
+pymongo
+dnspython
