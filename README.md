@@ -1,93 +1,91 @@
-# Bala voice-ai-debug-assistant
+# Bala Voice AI Debug Assistant
 
+This project is my take on building a smart, voice-activated assistant for developers, especially for those working with GitLab. My goal was to create a tool that uses AI to help analyze common development and DevOps challenges, making the debugging process quicker and more intuitive.
 
+## What It Does
 
-## Getting started
+This assistant is designed to:
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+* **Transcribe Voice Queries:** You can speak your questions, and the assistant will convert them into text.
+* **Connect to GitLab:** It hooks into GitLab to pull information about your projects, pipelines, job logs, and even issues.
+* **AI-Powered Insights:** Using Google's Gemini AI, it can:
+    * **Summarize Issues:** Quickly give you the gist of complex GitLab issues.
+    * **Analyze CI/CD Logs:** Help pinpoint problems in your pipeline failures.
+    * **Suggest Fixes:** Offer ideas for code improvements or optimize your GitLab CI/CD YAML files.
+    * **Refactor Code:** Even suggest better ways to write your code.
+* **Remember Conversations:** It stores your chat history and lets you provide feedback on AI responses.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## Technologies I Used
 
-## Add your files
+* **Python:** The core language for the application.
+* **Flask:** To build the web service that powers the assistant.
+* **Google Cloud:**
+    * **Speech-to-Text:** For voice recognition.
+    * **Vertex AI (Gemini LLM):** For the AI intelligence and generating responses.
+* **MongoDB:** To store conversation history and feedback.
+* **python-gitlab:** To interact with the GitLab API.
+* **GitLab CI/CD:** I've set up a basic pipeline that includes Static Application Security Testing (SAST) to check for security vulnerabilities.
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## How to Get It Running (Local Setup)
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/aryan-del360-group/bala-voice-ai-debug-assistant.git
-git branch -M main
-git push -uf origin main
-```
+Want to see it in action on your machine?
 
-## Integrate with your tools
+1.  **Clone the project:**
+    ```bash
+    git clone [https://gitlab.com/aryan-del360-group/bala-voice-ai-debug-assistant.git](https://gitlab.com/aryan-del360-group/bala-voice-ai-debug-assistant.git)
+    cd bala-voice-ai-debug-assistant
+    ```
+    *(Note: This uses the GitLab URL from your provided README. If you're pushing to GitHub, adjust the clone URL.)*
 
-- [ ] [Set up project integrations](https://gitlab.com/aryan-del360-group/bala-voice-ai-debug-assistant/-/settings/integrations)
+2.  **Set up a virtual environment (recommended):**
+    ```bash
+    python -m venv venv
+    # On Windows:
+    .\venv\Scripts\activate
+    # On macOS/Linux:
+    source venv/bin/activate
+    ```
 
-## Collaborate with your team
+3.  **Install all dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+4.  **Google Cloud Setup:**
+    * Make sure you have a Google Cloud project with the necessary APIs enabled (Speech-to-Text, Vertex AI).
+    * Set up authentication (e.g., using `gcloud auth application-default login` or by providing service account credentials via the `GOOGLE_APPLICATION_CREDENTIALS` environment variable).
+    * Set environment variables for your GCP Project ID and Region (e.g., `GCP_PROJECT_ID`, `GCP_REGION`).
 
-## Test and Deploy
+5.  **MongoDB Setup:**
+    * Ensure you have a MongoDB instance running (local or cloud-based).
+    * Set your MongoDB connection string as an environment variable (e.g., `MONGO_URI`).
 
-Use the built-in continuous integration in GitLab.
+6.  **GitLab Setup:**
+    * Generate a GitLab Personal Access Token with appropriate scopes (e.g., `api`, `read_repository`).
+    * Set it as an environment variable (e.g., `GITLAB_PRIVATE_TOKEN`).
+    * Set your GitLab API URL (e.g., `https://gitlab.com` or your self-hosted instance) as `GITLAB_URL`.
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+7.  **Run the Flask application:**
+    ```bash
+    python app.py
+    ```
+    The app will typically run on `http://127.0.0.1:5000`.
 
-***
+## Future Ideas
 
-# Editing this README
+I'm keen to keep improving this. Some ideas include:
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+* **Frontend Interface:** Build a dedicated web UI to interact with the assistant more smoothly.
+* **More Integrations:** Connect to other developer tools like Jira, Jenkins, or GitHub itself.
+* **Advanced AI Capabilities:** Explore more complex use cases for debugging and code analysis.
+* **User Management:** Add proper user authentication and management for team use.
 
-## Suggestions for a good README
+## Let's Connect!
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+Got questions or want to discuss this project? Feel free to reach out!
 
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+**Shubham Sharma**
+* **Email:** shubhamdatascientist76@gmail.com
+* **LinkedIn:** [My LinkedIn Profile](https://www.linkedin.com/in/shubham-sharma-224954367/)
+* **GitHub:** [My GitHub Profile](https://github.com/Aryan-del360)
+* **Portfolio:** [My Portfolio Website](https://your-portfolio-url.com) - *Remember to put your actual portfolio link here!*

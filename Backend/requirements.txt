@@ -1,9 +1,0 @@
-Flask
-Flask-CORS
-pymongo
-dnspython
-gunicorn
-google-cloud-speech
-google-cloud-aiplatform
-vertexai
-python-gitlab
