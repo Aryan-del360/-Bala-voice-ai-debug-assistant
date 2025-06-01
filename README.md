@@ -2,6 +2,12 @@
 
 This project is my take on building a smart, voice-activated assistant for developers, especially for those working with GitLab. My goal was to create a tool that uses AI to help analyze common development and DevOps challenges, making the debugging process quicker and more intuitive.
 
+# Bala Voice AI Debug Assistant
+
+This project is my take on building a smart, voice-activated assistant for developers...
+
+**🚀 Live Demo:** [https://bala-ai-app-222119246190.us-central1.run.app/](https://bala-ai-app-222119246190.us-central1.run.app/)
+
 ## What It Does
 
 This assistant is designed to:
