@@ -1,27 +1,40 @@
 import streamlit as st
+import os
+import json
 
-# --- Custom CSS for Modern Design, Icons, Animations ---
+# --- SETUP: Session state for projects, auth, files, history ---
+if "projects" not in st.session_state:
+    st.session_state.projects = [{"name": "Demo Project", "desc": "Sample project", "pinned": False, "history": []}]
+if "selected_project" not in st.session_state:
+    st.session_state.selected_project = 0
+if "code_file_content" not in st.session_state:
+    st.session_state.code_file_content = ""
+if "github_token" not in st.session_state:
+    st.session_state.github_token = ""
+if "gitlab_token" not in st.session_state:
+    st.session_state.gitlab_token = ""
+if "gmail_logged_in" not in st.session_state:
+    st.session_state.gmail_logged_in = False
+if "ci_cd_prompt" not in st.session_state:
+    st.session_state.ci_cd_prompt = ""
+if "history" not in st.session_state:
+    st.session_state.history = []
+if "ai_feedback" not in st.session_state:
+    st.session_state.ai_feedback = ""
+
+# --- Modern CSS for UI ---
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
 html, body, [class*="css"] { font-family: 'Inter', 'Noto Sans', sans-serif !important; }
 .sidebar-title { font-size: 1.5rem; font-weight: 900; margin-bottom: 2.5rem; color: #0c7ff2; }
 .page-title { font-size: 2.2rem; font-weight: 900; margin-bottom: 0.2em; color: #111418; }
-.breadcrumb { font-size: 1em; color: #60758a; margin-bottom: 1.5em; }
 .card { background: #fff; border-radius: 18px; box-shadow: 0 2px 10px #0001; padding: 1.5em; }
-.project-card:hover { box-shadow: 0 4px 20px #0c7ff210; transform: scale(1.01); }
-.project-image { border-radius: 12px 12px 0 0; }
-.icon-btn { background: #f0f2f5; border-radius: 50%; padding: 0.7em; border: none; transition: background 0.15s; }
-.icon-btn:hover { background: #e6f2ff; }
-.quick-tip { font-size: 0.99em; color: #60758a; }
-.sticky { position: sticky; top: 0; z-index: 9; background: white; }
-.tab-header { font-size: 1.12rem; font-weight: 700; margin-right: 1.5em; }
-.progress-bar-bg { background: #dbe0e6; border-radius: 7px; height: 15px; width: 100%; }
-.progress-bar-fill { background: #0c7ff2; border-radius: 7px; height: 15px; transition: width 0.5s; }
-.minimap { background: #f0f2f5; border-left: 2px solid #dbe0e6; font-size: 0.8em; color: #60758a; height: 220px; overflow: auto; }
-.draggable { cursor: col-resize; }
-@media (max-width: 900px) { .project-grid { grid-template-columns: 1fr 1fr !important; } }
-@media (max-width: 600px) { .project-grid { grid-template-columns: 1fr !important; } }
+.project-card:hover { box-shadow: 0 4px 20px #0c7ff210; transform: scale(1.01);}
+.team-badge { color: #60758a; font-size: 0.9em; background: #e6f2ff; border-radius: 7px; padding: 2px 10px;}
+.pinned { color: #f59e0b; }
+.pin-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; }
+input[type="file"] { color: #111418 !important; }
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
 """, unsafe_allow_html=True)
@@ -36,58 +49,110 @@ nav = st.sidebar.radio(
                           f"🚀 Pipelines" if x=="Pipelines" else
                           f"⚙️ Settings"
 )
+# --- GMAIL LOGIN (OAUTH MOCKUP) ---
+def gmail_login_button():
+    if not st.session_state.gmail_logged_in:
+        if st.button("🔗 One-click Gmail Login"):
+            # --- TODO: Replace with real OAuth flow for Gmail/Google API ---
+            st.session_state.gmail_logged_in = True
+            st.success("Logged in with Gmail! (OAuth2 flow placeholder)")
+    else:
+        st.success("Gmail Connected!")
+
+# --- GITHUB LOGIN ---
+def github_login_form():
+    if st.session_state.github_token:
+        st.success("GitHub Connected!")
+    else:
+        token = st.text_input("GitHub Personal Access Token", type="password")
+        if st.button("Connect GitHub"):
+            # --- TODO: Validate via GitHub API ---
+            if token.strip():
+                st.session_state.github_token = token.strip()
+                st.success("GitHub Connected!")
+            else:
+                st.error("Enter your GitHub token.")
+
+# --- GITLAB LOGIN ---
+def gitlab_login_form():
+    if st.session_state.gitlab_token:
+        st.success("GitLab Connected!")
+    else:
+        token = st.text_input("GitLab Personal Access Token", type="password", key="gitlab_token")
+        if st.button("Connect GitLab"):
+            # --- TODO: Validate via GitLab API ---
+            if token.strip():
+                st.session_state.gitlab_token = token.strip()
+                st.success("GitLab Connected!")
+            else:
+                st.error("Enter your GitLab token.")
+
+# --- PROJECT MANAGEMENT ---
+def new_project_form():
+    with st.form("new_project_form", clear_on_submit=True):
+        pname = st.text_input("New Project Name")
+        pdesc = st.text_area("Description")
+        submitted = st.form_submit_button("Create Project")
+        if submitted and pname:
+            st.session_state.projects.append({
+                "name": pname, "desc": pdesc, "pinned": False, "history": []
+            })
+            st.success(f"Project '{pname}' created.")
+
+def project_selector():
+    proj_names = [f"{p['name']} {'📌' if p['pinned'] else ''}" for p in st.session_state.projects]
+    idx = st.selectbox("Select Project", range(len(proj_names)), format_func=lambda i: proj_names[i])
+    st.session_state.selected_project = idx
+    p = st.session_state.projects[idx]
+    pin, unpin = st.columns(2)
+    with pin:
+        if st.button("📌 Pin", key=f"pin_{idx}"):
+            st.session_state.projects[idx]["pinned"] = True
+    with unpin:
+        if st.button("❌ Unpin", key=f"unpin_{idx}"):
+            st.session_state.projects[idx]["pinned"] = False
+    st.markdown(f"**{p['name']}** — {p['desc']}")
+
+# --- FILE UPLOAD / EDIT ---
+def safe_file_upload():
+    file = st.file_uploader("Upload a code file", type=["py","js","html","json","yaml","yml","sh","c","cpp","java","ts","rb","php","cs","go","ipynb"], key="upload_file_editor")
+    content = ""
+    if file:
+        try:
+            content = file.read().decode("utf-8")
+            st.session_state.code_file_content = content
+            st.success("File uploaded!")
+        except Exception:
+            st.error("Could not read file as text.")
+    return st.session_state.code_file_content
 
 # --- HOMEPAGE ---
 if nav == "Home":
     st.markdown('<div class="page-title">Home</div>', unsafe_allow_html=True)
-    # Global Search Bar
-    st.text_input("🔎  Global Search", placeholder="Find projects, files, or team members...", key="global_search")
-    # Quick Action Buttons
+    st.text_input("🔎 Global Search", placeholder="Find projects, files, team...", key="global_search")
+    st.markdown("### Quick Actions")
     qcols = st.columns([1,1,1,1])
-    with qcols[0]: st.button("➕ New Project", help="Create a project")
+    with qcols[0]: new_project_form()
     with qcols[1]: st.button("⬆️ Import Project", help="Import from repo")
     with qcols[2]: st.button("📂 Open File", help="Browse files")
-    with qcols[3]: st.button("👥 Invite", help="Invite teammate")
+    with qcols[3]: gmail_login_button()
     st.markdown("### My Projects")
-    # Project Grid
-    st.markdown("""<div style='display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1.5em;' class='project-grid'>""", unsafe_allow_html=True)
-    for p in [
-        ("Project Alpha", "2 days ago", "Avengers", "https://lh3.googleusercontent.com/aida-public/AB6AXuAczTRRgOd4LTPkCtFLHlKltv7pait1rx9noDVi4ajLzPyctROxhrxjnQ2YryUOq_SpGE0YaTsSDGeM0ecoqHK5LMgiEfcRpJb6wHF8xBjey6DX2g2ANNhT7PrQAHCVa9YXEG1hpbS_hjKkPno6JrC2H8xv5rkM_0UyUv6OJMIKz3GzGXuC-WCQjkaowTHejQKcUUfL2t5UJpjVueK20SG-e0-6XkvIW8ETXYv9AWI4fxKi1B44fIg_JV4MNbpWrkvpAn6shNqIMw"),
-        ("Project Beta", "1 week ago", "Justice League", "https://lh3.googleusercontent.com/aida-public/AB6AXuClWHpXaU41l6w3BgRVE08NPEXZC9YG-ZRgkJ2wzPk2nihIpC4nSpREiNP5imbOGAwNG_Zkj5xPJ5dRrucFFD61wZGNIggUvu4rg3nwvYeh8d_4Ci7QK8yKhVTkF1DACcehV4aZvY_9TJJqlSjBg0Fc3DZt06C25k6mtX1zgJ8l8UnPmsrjmrRkm19CwNqngOT4NpKGag8ydP1vz0K_d6VMEo9YaQsnT9KSpzNQlBNe4fV2AcJyJMmY-4RzEnQlMs2bjDzq_aCH3A"),
-        ("Project Gamma", "3 weeks ago", "X-Men", "https://lh3.googleusercontent.com/aida-public/AB6AXuB3OTJVCS-puQLQLbk4blPwksvbn6Sz-8lhmj0REjgqxZSeRwPphvbIs5NmM5VE-5I8wtNrCg-ILwDp51dv2o2AwxzzWoNuwADG5CGaGkawQPhw-CTlSbJEpuSLGsdNy3xxSLdC8ok6UouPDZJM915BK5BWQM5QF4v-0MlaTH6I2Ii3i5v_u59wxuZDdrnk8JQBuldwUMNPdJn86xlsC17OaAM6eoyyGer-y9PrAh65ujxamR4-RBQ-49EN9TXPst8x519svwAzSg"),
-        ("Project Delta", "1 month ago", "Titans", "https://lh3.googleusercontent.com/aida-public/AB6AXuCHeiPGT4MrO98wXxyVZw9ZuvbMj0wdcoAeQqu2Iq3WEb2OdOtVzqsXbcyrX5kTaMaRtJLEcMxwQRaqapKTOMCAZ16WjeOdCKefj9KHv-1OA0GHwrVf93dqXN-tHZQ8x1f79QXG0kY_gWjMY8vKICj9FaswCmfQA5W7k8chsJS1BgurI9Lof3hKX1lxjEvMvzuh8UuFvTGBiIU7ABFalnJsSMJcE0sjWSEJv5w3zwCvWWPwjYhnNKNT6h4JXSJbQ2wbshb5Yg1GtQ"),
-    ]:
+    for idx, p in enumerate(st.session_state.projects):
         st.markdown(
             f"<div class='card project-card'>"
-            f"<img src='{p[3]}' class='project-image' style='width:100%;height:130px;object-fit:cover;margin-bottom:0.7em;'/>"
-            f"<b>{p[0]}</b><br>"
-            f"<span style='color:#60758a;font-size:0.96em;'>Last updated {p[1]}</span><br>"
-            f"<span class='team-badge'>{p[2]}</span></div>",
+            f"<b>{p['name']}</b> {'<span class=\"pinned\">📌</span>' if p['pinned'] else ''}<br>"
+            f"<span class='team-badge'>History: {len(p['history'])} edits</span><br>"
+            f"{p['desc']}<br>"
+            f"<button class='pin-btn' onclick='window.location.reload();'>{'Unpin' if p['pinned'] else 'Pin'}</button>"
+            "</div>",
             unsafe_allow_html=True
         )
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # Recent Activity
-    st.markdown("### Recent Activity")
-    for text in [
-        "Alex merged a merge request (2h ago)",
-        "Sarah updated an issue (5h ago)",
-        "System created a pipeline (1d ago)",
-        "David assigned an issue (2d ago)"
-    ]:
-        st.write(f"• {text}")
-
-    # Notifications
-    st.markdown("### Notifications")
-    st.info("🔔 Project Alpha pipeline failed — 3h ago")
-    st.success("✅ New comment on issue #123 — Yesterday")
-
-    st.markdown("<div class='quick-tip'>Tip: Use the sidebar to explore your workspace!</div>", unsafe_allow_html=True)
 
 # --- PROJECT DASHBOARD ---
 elif nav == "Projects":
-    st.markdown('<div class="page-title">Project X</div>', unsafe_allow_html=True)
-    st.markdown('<div class="breadcrumb">Projects / Project X / Overview</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-title">Project Dashboard</div>', unsafe_allow_html=True)
+    st.markdown('<div class="breadcrumb">Projects / Dashboard</div>', unsafe_allow_html=True)
+    project_selector()
     tabs = st.tabs(["Overview", "Files", "Team", "CI/CD", "Settings"])
     with tabs[0]:
         st.markdown("#### Project Status")
@@ -97,44 +162,51 @@ elif nav == "Projects":
         with c3: st.success("Deployment: Deployed (+10%)")
         st.markdown("---")
         st.write("Recent project activity and summary goes here.")
-
     with tabs[1]:
-        st.markdown('<div class="sticky">', unsafe_allow_html=True)
-        st.write("Action Toolbar: [Add File] [Upload] [New Folder]")
-        st.markdown('</div>', unsafe_allow_html=True)
         st.write("Project files browser here...")
-
     with tabs[2]:
         st.write("Team management UI here... [Invite Member]")
-
     with tabs[3]:
         st.write("CI/CD pipeline, logs, run controls, and visualizations here...")
-
     with tabs[4]:
         st.write("Project-specific settings...")
 
 # --- FILE EDITOR PAGE ---
 elif nav == "Editor":
-    st.markdown('<div class="page-title">index.html</div>', unsafe_allow_html=True)
-    st.markdown('<div class="breadcrumb">Projects / My Awesome Project / index.html</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-title">Editor</div>', unsafe_allow_html=True)
+    st.markdown('<div class="breadcrumb">Projects / Editor</div>', unsafe_allow_html=True)
     etabs = st.tabs(["Code", "Preview", "History"])
     with etabs[0]:
-        cols = st.columns([6,1])
-        code = cols[0].text_area("Edit your code:", height=320, value="<!-- Your HTML code here -->")
-        with cols[1]:
-            st.markdown("<div class='minimap'>Minimap view of code</div>", unsafe_allow_html=True)
-        st.button("Run", key="run_code_editor", help="Run or preview your code")
+        code_val = safe_file_upload()
+        code = st.text_area("Edit your code:", value=code_val, height=320, key="editor_code")
+        if st.button("Save to History"):
+            idx = st.session_state.selected_project
+            p = st.session_state.projects[idx]
+            p["history"].append({"code": code, "desc": "Manual save"})
+            st.success("Code saved to history.")
+        if st.button("Pin Project in Editor"):
+            idx = st.session_state.selected_project
+            st.session_state.projects[idx]["pinned"] = True
     with etabs[1]:
         st.write("Live Preview will appear here.")
     with etabs[2]:
-        st.write("File revision history...")
+        idx = st.session_state.selected_project
+        p = st.session_state.projects[idx]
+        st.write("History (last 5 saves):")
+        for h in p["history"][-5:]:
+            st.code(h["code"][:200] + ("..." if len(h["code"])>200 else ""), language="python")
+            st.write(h.get("desc",""))
 
-    # Draggable Panels/Sticky Header mock
-    st.markdown("<div class='sticky'>File: index.html | [Save] [Upload] [Revisions] [Delete]</div>", unsafe_allow_html=True)
+    # Sticky header mock, draggable panels mock (Streamlit doesn't support drag-resize natively)
+    st.markdown("<div class='sticky'>File: index.html | [Save] [Upload] [Revisions] [Pin]</div>", unsafe_allow_html=True)
     st.markdown("----")
     st.markdown("#### AI Assistant")
-    st.text_input("Ask a coding question...", key="aiassistant")
-    st.button("Send", key="sendai")
+    prompt = st.text_input("Ask for code correction (GitHub/Gemini):")
+    github_login_form()
+    if st.button("Correct Code Now (GitHub + AI)"):
+        # --- TODO: Add Gemini/GitHub code correction logic here! ---
+        st.session_state.ai_feedback = "Corrected code would be shown here."
+        st.success(st.session_state.ai_feedback)
 
 # --- PIPELINES PAGE ---
 elif nav == "Pipelines":
@@ -143,21 +215,14 @@ elif nav == "Pipelines":
     with ptabs[0]:
         st.markdown("#### Create/Manage Pipeline")
         st.text_input("Pipeline Name")
-        st.selectbox("Source Code Repository", ["Select repository", "GitHub", "GitLab", "Bitbucket"])
-        st.button("Connect to GitLab")
-        st.markdown("#### **Pipeline Visual Graph** (coming soon)")
-        # Example: use color for stage status
-        cols = st.columns(4)
-        stages = [("Trigger", "#0c7ff2", "Push to main"), ("Build", "#22c55e", "Success"), ("Test", "#3b82f6", "Running..."), ("Deploy", "#60758a", "Pending")]
-        for i, (stage, color, status) in enumerate(stages):
-            with cols[i]:
-                st.markdown(
-                    f"<div style='border:2px solid {color};border-radius:12px;padding:1em 0.6em;background:#f6fafd;margin-bottom:0.5em;text-align:center;'>"
-                    f"<span class='material-icons-outlined' style='color:{color};font-size:2.3em;'>bolt</span><br>"
-                    f"<b style='color:{color};'>{stage}</b><br><span>{status}</span></div>",
-                    unsafe_allow_html=True
-                )
-        st.button("Run Pipeline")
+        gitlab_login_form()
+        ci_cd_prompt = st.text_area("Paste your GitLab CI YAML here for AI correction:", key="cicd_yaml")
+        if st.button("AI Correct GitLab CI/CD Pipeline"):
+            # --- TODO: Replace with Gemini AI logic for YAML correction ---
+            st.session_state.ci_cd_prompt = "Corrected YAML and explanation would go here."
+            st.success(st.session_state.ci_cd_prompt)
+        st.markdown("#### Visual Pipeline (mock)")
+        st.info("Interactive pipeline graph would go here.")
     with ptabs[1]:
         st.write("Prebuilt pipeline templates...")
     with ptabs[2]:
@@ -179,6 +244,7 @@ elif nav == "Settings":
         st.text_input("Username", value="alexj")
         st.text_input("Password", type="password")
         st.button("Update Account")
+        gmail_login_button()
     with settabs[1]:
         st.write("User preferences here...")
     with settabs[2]:
