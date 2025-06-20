@@ -1,10 +1,10 @@
 import streamlit as st
-import os
-import json
 
-# --- SETUP: Session state for projects, auth, files, history ---
+# ----------------- Session State Setup -----------------
 if "projects" not in st.session_state:
-    st.session_state.projects = [{"name": "Demo Project", "desc": "Sample project", "pinned": False, "history": []}]
+    st.session_state.projects = [
+        {"name": "Demo Project", "desc": "Your first project!", "pinned": False, "history": []}
+    ]
 if "selected_project" not in st.session_state:
     st.session_state.selected_project = 0
 if "code_file_content" not in st.session_state:
@@ -13,16 +13,10 @@ if "github_token" not in st.session_state:
     st.session_state.github_token = ""
 if "gitlab_token" not in st.session_state:
     st.session_state.gitlab_token = ""
-if "gmail_logged_in" not in st.session_state:
-    st.session_state.gmail_logged_in = False
-if "ci_cd_prompt" not in st.session_state:
-    st.session_state.ci_cd_prompt = ""
-if "history" not in st.session_state:
-    st.session_state.history = []
-if "ai_feedback" not in st.session_state:
-    st.session_state.ai_feedback = ""
+if "google_logged_in" not in st.session_state:
+    st.session_state.google_logged_in = False
 
-# --- Modern CSS for UI ---
+# ----------------- CSS Styling -----------------
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
@@ -35,11 +29,12 @@ html, body, [class*="css"] { font-family: 'Inter', 'Noto Sans', sans-serif !impo
 .pinned { color: #f59e0b; }
 .pin-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; }
 input[type="file"] { color: #111418 !important; }
+hr {margin-top: 2em; margin-bottom: 1em;}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
 """, unsafe_allow_html=True)
 
-# --- Sidebar Navigation ---
+# ----------------- Sidebar Navigation -----------------
 st.sidebar.markdown('<div class="sidebar-title">Bala Coding Agent</div>', unsafe_allow_html=True)
 nav = st.sidebar.radio(
     "Menu", ["Home", "Projects", "Editor", "Pipelines", "Settings"],
@@ -49,48 +44,45 @@ nav = st.sidebar.radio(
                           f"🚀 Pipelines" if x=="Pipelines" else
                           f"⚙️ Settings"
 )
-# --- GMAIL LOGIN (OAUTH MOCKUP) ---
-def gmail_login_button():
-    if not st.session_state.gmail_logged_in:
-        if st.button("🔗 One-click Gmail Login"):
-            # --- TODO: Replace with real OAuth flow for Gmail/Google API ---
-            st.session_state.gmail_logged_in = True
-            st.success("Logged in with Gmail! (OAuth2 flow placeholder)")
-    else:
-        st.success("Gmail Connected!")
 
-# --- GITHUB LOGIN ---
-def github_login_form():
+# ----------------- Auth/Login Helpers -----------------
+def github_login():
     if st.session_state.github_token:
         st.success("GitHub Connected!")
     else:
-        token = st.text_input("GitHub Personal Access Token", type="password")
-        if st.button("Connect GitHub"):
-            # --- TODO: Validate via GitHub API ---
+        token = st.text_input("GitHub PAT (for private repo features)", type="password", key="githubpat")
+        if st.button("Connect to GitHub"):
             if token.strip():
                 st.session_state.github_token = token.strip()
                 st.success("GitHub Connected!")
             else:
-                st.error("Enter your GitHub token.")
+                st.error("Enter your GitHub token")
 
-# --- GITLAB LOGIN ---
-def gitlab_login_form():
+def gitlab_login():
     if st.session_state.gitlab_token:
         st.success("GitLab Connected!")
     else:
-        token = st.text_input("GitLab Personal Access Token", type="password", key="gitlab_token")
-        if st.button("Connect GitLab"):
-            # --- TODO: Validate via GitLab API ---
+        token = st.text_input("GitLab Personal Access Token", type="password", key="gitlabpat")
+        if st.button("Connect to GitLab"):
             if token.strip():
                 st.session_state.gitlab_token = token.strip()
                 st.success("GitLab Connected!")
             else:
-                st.error("Enter your GitLab token.")
+                st.error("Enter your GitLab token")
 
-# --- PROJECT MANAGEMENT ---
-def new_project_form():
+def google_login():
+    if st.session_state.google_logged_in:
+        st.success("Google (Gmail) Connected!")
+    else:
+        if st.button("One-click Google Login"):
+            # Insert your Google OAuth here!
+            st.session_state.google_logged_in = True
+            st.success("Google (Gmail) Connected! (stub)")
+
+# ----------------- Project Management -----------------
+def create_project():
     with st.form("new_project_form", clear_on_submit=True):
-        pname = st.text_input("New Project Name")
+        pname = st.text_input("Project Name")
         pdesc = st.text_area("Description")
         submitted = st.form_submit_button("Create Project")
         if submitted and pname:
@@ -99,25 +91,25 @@ def new_project_form():
             })
             st.success(f"Project '{pname}' created.")
 
-def project_selector():
-    proj_names = [f"{p['name']} {'📌' if p['pinned'] else ''}" for p in st.session_state.projects]
-    idx = st.selectbox("Select Project", range(len(proj_names)), format_func=lambda i: proj_names[i])
+def select_project():
+    projects = st.session_state.projects
+    names = [f"{p['name']}{' 📌' if p['pinned'] else ''}" for p in projects]
+    idx = st.selectbox("Select Project", range(len(names)), format_func=lambda i: names[i], key="projselect")
     st.session_state.selected_project = idx
-    p = st.session_state.projects[idx]
-    pin, unpin = st.columns(2)
+    p = projects[idx]
+    pin, unpin = st.columns([1,1])
     with pin:
-        if st.button("📌 Pin", key=f"pin_{idx}"):
-            st.session_state.projects[idx]["pinned"] = True
+        if not p['pinned'] and st.button("📌 Pin", key=f"pin{idx}"):
+            p['pinned'] = True
     with unpin:
-        if st.button("❌ Unpin", key=f"unpin_{idx}"):
-            st.session_state.projects[idx]["pinned"] = False
+        if p['pinned'] and st.button("❌ Unpin", key=f"unpin{idx}"):
+            p['pinned'] = False
     st.markdown(f"**{p['name']}** — {p['desc']}")
 
-# --- FILE UPLOAD / EDIT ---
-def safe_file_upload():
-    file = st.file_uploader("Upload a code file", type=["py","js","html","json","yaml","yml","sh","c","cpp","java","ts","rb","php","cs","go","ipynb"], key="upload_file_editor")
-    content = ""
-    if file:
+# ----------------- File Upload/Edit -----------------
+def code_file_upload():
+    file = st.file_uploader("Upload a code file", type=["py","js","html","json","yaml","yml","sh","c","cpp","java","ts","rb","php","cs","go","ipynb"], key="file_upload")
+    if file is not None:
         try:
             content = file.read().decode("utf-8")
             st.session_state.code_file_content = content
@@ -126,58 +118,53 @@ def safe_file_upload():
             st.error("Could not read file as text.")
     return st.session_state.code_file_content
 
-# --- HOMEPAGE ---
+# ----------------- Home -----------------
 if nav == "Home":
     st.markdown('<div class="page-title">Home</div>', unsafe_allow_html=True)
-    st.text_input("🔎 Global Search", placeholder="Find projects, files, team...", key="global_search")
+    st.text_input("🔎 Global Search", placeholder="Find projects, files, or team...", key="search")
     st.markdown("### Quick Actions")
     qcols = st.columns([1,1,1,1])
-    with qcols[0]: new_project_form()
-    with qcols[1]: st.button("⬆️ Import Project", help="Import from repo")
-    with qcols[2]: st.button("📂 Open File", help="Browse files")
-    with qcols[3]: gmail_login_button()
+    with qcols[0]: create_project()
+    with qcols[1]: st.button("⬆️ Import Project")
+    with qcols[2]: st.button("📂 Open File")
+    with qcols[3]: 
+        github_login()
+        gitlab_login()
+        google_login()
+
     st.markdown("### My Projects")
     for idx, p in enumerate(st.session_state.projects):
         st.markdown(
             f"<div class='card project-card'>"
             f"<b>{p['name']}</b> {'<span class=\"pinned\">📌</span>' if p['pinned'] else ''}<br>"
             f"<span class='team-badge'>History: {len(p['history'])} edits</span><br>"
-            f"{p['desc']}<br>"
-            f"<button class='pin-btn' onclick='window.location.reload();'>{'Unpin' if p['pinned'] else 'Pin'}</button>"
+            f"{p['desc']}"
             "</div>",
             unsafe_allow_html=True
         )
 
-# --- PROJECT DASHBOARD ---
+# ----------------- Projects -----------------
 elif nav == "Projects":
-    st.markdown('<div class="page-title">Project Dashboard</div>', unsafe_allow_html=True)
-    st.markdown('<div class="breadcrumb">Projects / Dashboard</div>', unsafe_allow_html=True)
-    project_selector()
+    st.markdown('<div class="page-title">Projects</div>', unsafe_allow_html=True)
+    select_project()
     tabs = st.tabs(["Overview", "Files", "Team", "CI/CD", "Settings"])
     with tabs[0]:
-        st.markdown("#### Project Status")
-        c1, c2, c3 = st.columns(3)
-        with c1: st.success("Build Status: Success (+5%)")
-        with c2: st.success("Code Coverage: 95% (+2%)")
-        with c3: st.success("Deployment: Deployed (+10%)")
-        st.markdown("---")
-        st.write("Recent project activity and summary goes here.")
+        st.write("Project Overview: status, summary, activity.")
     with tabs[1]:
-        st.write("Project files browser here...")
+        st.write("Files (upload, browse, manage).")
     with tabs[2]:
-        st.write("Team management UI here... [Invite Member]")
+        st.write("Team (invite, manage).")
     with tabs[3]:
-        st.write("CI/CD pipeline, logs, run controls, and visualizations here...")
+        st.write("CI/CD: see pipeline states, run pipeline, etc.")
     with tabs[4]:
-        st.write("Project-specific settings...")
+        st.write("Project-specific settings.")
 
-# --- FILE EDITOR PAGE ---
+# ----------------- Editor -----------------
 elif nav == "Editor":
     st.markdown('<div class="page-title">Editor</div>', unsafe_allow_html=True)
-    st.markdown('<div class="breadcrumb">Projects / Editor</div>', unsafe_allow_html=True)
     etabs = st.tabs(["Code", "Preview", "History"])
     with etabs[0]:
-        code_val = safe_file_upload()
+        code_val = code_file_upload()
         code = st.text_area("Edit your code:", value=code_val, height=320, key="editor_code")
         if st.button("Save to History"):
             idx = st.session_state.selected_project
@@ -196,47 +183,29 @@ elif nav == "Editor":
         for h in p["history"][-5:]:
             st.code(h["code"][:200] + ("..." if len(h["code"])>200 else ""), language="python")
             st.write(h.get("desc",""))
-
-    # Sticky header mock, draggable panels mock (Streamlit doesn't support drag-resize natively)
-    st.markdown("<div class='sticky'>File: index.html | [Save] [Upload] [Revisions] [Pin]</div>", unsafe_allow_html=True)
     st.markdown("----")
     st.markdown("#### AI Assistant")
-    prompt = st.text_input("Ask for code correction (GitHub/Gemini):")
-    github_login_form()
-    if st.button("Correct Code Now (GitHub + AI)"):
-        # --- TODO: Add Gemini/GitHub code correction logic here! ---
-        st.session_state.ai_feedback = "Corrected code would be shown here."
-        st.success(st.session_state.ai_feedback)
+    st.text_input("Ask for code correction (GitHub/Gemini):")
+    github_login()
 
-# --- PIPELINES PAGE ---
+# ----------------- Pipelines -----------------
 elif nav == "Pipelines":
     st.markdown('<div class="page-title">Pipelines</div>', unsafe_allow_html=True)
     ptabs = st.tabs(["Pipelines", "Templates", "History"])
     with ptabs[0]:
-        st.markdown("#### Create/Manage Pipeline")
         st.text_input("Pipeline Name")
-        gitlab_login_form()
-        ci_cd_prompt = st.text_area("Paste your GitLab CI YAML here for AI correction:", key="cicd_yaml")
+        gitlab_login()
+        ci_cd_prompt = st.text_area("Paste your GitLab CI YAML here for AI correction:")
         if st.button("AI Correct GitLab CI/CD Pipeline"):
-            # --- TODO: Replace with Gemini AI logic for YAML correction ---
-            st.session_state.ci_cd_prompt = "Corrected YAML and explanation would go here."
-            st.success(st.session_state.ci_cd_prompt)
-        st.markdown("#### Visual Pipeline (mock)")
-        st.info("Interactive pipeline graph would go here.")
+            st.info("This is where Gemini/GPT AI correction logic will run (plug in your model).")
     with ptabs[1]:
         st.write("Prebuilt pipeline templates...")
     with ptabs[2]:
         st.write("Pipeline run history...")
 
-# --- SETTINGS PAGE ---
+# ----------------- Settings -----------------
 elif nav == "Settings":
     st.markdown('<div class="page-title">Settings</div>', unsafe_allow_html=True)
-    st.markdown('<div class="breadcrumb">Settings / Account</div>', unsafe_allow_html=True)
-    st.markdown("#### Profile Progress")
-    st.markdown('<div class="progress-bar-bg"><div class="progress-bar-fill" style="width:75%"></div></div>', unsafe_allow_html=True)
-    st.caption("Profile Setup: 75%")
-    st.markdown('<div class="progress-bar-bg"><div class="progress-bar-fill" style="width:25%"></div></div>', unsafe_allow_html=True)
-    st.caption("Team Setup: 25%")
     settabs = st.tabs(["Account", "Preferences", "Notifications", "Team"])
     with settabs[0]:
         st.text_input("Name", value="Alex Johnson")
@@ -244,7 +213,7 @@ elif nav == "Settings":
         st.text_input("Username", value="alexj")
         st.text_input("Password", type="password")
         st.button("Update Account")
-        gmail_login_button()
+        google_login()
     with settabs[1]:
         st.write("User preferences here...")
     with settabs[2]:
