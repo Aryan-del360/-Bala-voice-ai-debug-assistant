@@ -1,180 +1,222 @@
 import streamlit as st
+import requests
 import os
 
-# --- Custom CSS for GenZ/Modern look ---
+# --- Custom CSS for "Stitch by Google" look & feel ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css?family=JetBrains+Mono:400,700|Inter:400,700&display=swap');
-    html, body, [class*="css"] {
-        font-family: 'Inter', 'JetBrains Mono', monospace;
-        background: linear-gradient(120deg, #141e30 0%, #243b55 100%);
-        color: #f3f3f3;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    html, body, [class*="css"]  {
+        font-family: 'Inter', sans-serif;
+        background: linear-gradient(120deg, #EAF0FF 0%, #F7F8FA 100%);
+        color: #222;
     }
-    .main-title {
-        font-size: 2.7rem;
-        font-family: 'JetBrains Mono', monospace;
-        font-weight: 800;
-        letter-spacing: -1.5px;
-        background: linear-gradient(90deg, #4b6cb7, #182848 70%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.3em;
-    }
-    .subtitle {
-        font-size: 1.25rem;
-        color: #cfcfcf;
-        margin-bottom: 2em;
-    }
-    .stTextInput>div>div>input, .stTextArea textarea, .stFileUploader>div>div>input {
-        background: #222a36;
-        color: #f3f3f3;
-        border-radius: 9px;
-        font-size: 1.05em;
-        border: 1.5px solid #5c6bc0;
+    .stApp {
+        background: linear-gradient(120deg, #EAF0FF 0%, #F7F8FA 100%);
     }
     .stButton>button {
-        background: linear-gradient(90deg, #4b6cb7, #182848 70%);
-        color: #fff;
-        border-radius: 8px;
-        font-weight: bold;
-        font-size: 1.1em;
-        transition: 0.2s;
-        box-shadow: 0 2px 9px 0 #1114;
+        background: #6B7CFF;
+        color: white;
+        border: none;
+        border-radius: 16px;
+        font-weight: 600;
+        font-size: 1.08em;
+        padding: 0.6em 2.2em;
+        box-shadow: 0 2px 12px #6b7cff22;
+        transition: 0.2s all;
     }
     .stButton>button:hover {
-        background: linear-gradient(90deg, #f7971e, #ffd200 90%);
-        color: #1a1a1a;
-        transform: scale(1.04);
+        background: #222C7B;
+        color: #fff;
+        transform: translateY(-2px) scale(1.045);
     }
-    .stSidebar {
-        background: #1a2332;
+    .glass-card {
+        background: rgba(255,255,255,0.78);
+        border-radius: 24px;
+        box-shadow: 0 4px 32px 0 #6b7cff11;
+        padding: 2.5em 2em 1.8em 2em;
+        margin-bottom: 2.2em;
+        margin-top: 1.5em;
+        border: 1.5px solid #f5f7fa;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .main-title {
+        font-size: 2.1rem;
+        font-weight: 800;
+        letter-spacing: -1.1px;
+        color: #222C7B;
+        text-align: center;
+        margin-bottom: 0.09em;
+    }
+    .subtitle {
+        font-size: 1.14rem;
+        color: #5A5A89;
+        text-align: center;
+        margin-bottom: 2.1em;
+    }
+    .stTextInput>div>div>input, .stTextArea textarea, .stFileUploader>div>div>input {
+        background: #f5f7fa;
+        border-radius: 12px;
+        border: 1.5px solid #dde2ef;
+        color: #222;
+        font-size: 1.02em;
+        padding: 0.7em 1em;
+    }
+    .stTextArea textarea {
+        min-height: 100px;
     }
     .stFileUploader label {
-        font-size: 1.07em;
+        font-size: 1.06em;
+        color: #6B7CFF;
         font-weight: 600;
-        color: #ffd200;
     }
     .stMarkdown {
         font-size: 1.03em;
     }
-    .hint {
-        color: #ffd200;
-        font-size: 0.96em;
-        margin-top: -10px;
-        margin-bottom: 20px;
-    }
-    .card {
-        background: rgba(22, 31, 49, 0.93);
-        border-radius: 1.2rem;
-        box-shadow: 0 8px 38px 0 #0003;
-        padding: 2.5em 2em;
-        margin-bottom: 2.5em;
-        margin-top: 1.2em;
-    }
     .stAlert {
-        border-radius: 0.7em;
+        border-radius: 12px;
+    }
+    .stSidebar {
+        background: #f5f7fa;
+    }
+    .tab-head {
+        background: #f5f7fa;
+        border-radius: 1.5em 1.5em 0 0;
+        padding: 1.2em 0 0.4em 0;
+        margin-bottom: 2em;
+        text-align: center;
+    }
+    .tab-icon {
+        font-size: 1.6em;
+        margin-right: 0.4em;
+        color: #6B7CFF;
+        vertical-align: middle;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- Header ---
-st.markdown('<div class="main-title">🚀 Bala Voice AI Debug Assistant</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">A Gen Z-ready, developer-first productivity tool.<br>Transcribe, analyze, and review – all in one place.</div>', unsafe_allow_html=True)
-
-# --- Sidebar config ---
-st.sidebar.header("🛠️ Configuration")
-backend_url = st.sidebar.text_input("API URL", os.getenv("BACKEND_URL", ""), help="Your backend endpoint (Flask/FastAPI)")
-api_key = st.sidebar.text_input("API Key", type="password", help="Optional: Secret or token for backend auth")
+# --- Sidebar for config ---
+st.sidebar.header("⚙️ Configuration")
+backend_url = st.sidebar.text_input(
+    "Backend API URL",
+    os.getenv("BACKEND_URL", ""),
+    help="Your deployed Flask/FastAPI endpoint (for processing queries, audio, etc)."
+)
+api_key = st.sidebar.text_input("API Key (optional)", type="password", help="If your backend requires authentication.")
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("🌈 **Pro Tip:** Use the light/dark mode toggle in Streamlit menu!")
+st.sidebar.markdown(
+    "👾 <b>Tip:</b> You can leave Backend URL blank for demo mode (no processing).",
+    unsafe_allow_html=True
+)
 
-# --- Main Card Layout ---
+# --- Main UI ---
+st.markdown('<div class="main-title">🪡 Bala Voice AI Debug Assistant</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Minimal, playful, and smooth — inspired by <b>Stitch by Google</b>.</div>', unsafe_allow_html=True)
+
 with st.container():
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    tab1, tab2, tab3 = st.tabs(["📝 Query", "🎵 Transcribe Audio", "🐍 Python Code Review"])
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+
+    tab1, tab2, tab3 = st.tabs(
+        [
+            "💬 Query",
+            "🎙️ Audio Transcription",
+            "📁 Code File Review"
+        ]
+    )
 
     # --- Tab 1: Query ---
     with tab1:
-        st.markdown("**Ask anything related to Dev, DevOps, or GitLab:**")
-        query = st.text_area("Type your question...", placeholder="e.g. How do I fix a merge conflict in GitLab CI?", help="Ask technical queries here.")
-        st.markdown('<div class="hint">💡 You can also ask about code, deployment, or debugging!</div>', unsafe_allow_html=True)
+        st.markdown('<div class="tab-head"><span class="tab-icon">💬</span><b>Ask a Developer Question</b></div>', unsafe_allow_html=True)
+        query = st.text_area("Question", placeholder="e.g. How do I resolve merge conflicts in Git?", help="Ask any Dev/DevOps/AI question.")
         if st.button("Send Query", key="query_btn"):
             if not backend_url:
-                st.warning("Set the API URL in the sidebar.")
+                st.info("Demo mode: No backend URL set. This would contact your backend.")
             elif not query.strip():
-                st.error("Please enter a question.")
+                st.warning("Please enter your question.")
             else:
-                import requests
-                data = {"query_text": query.strip()}
                 headers = {}
-                if api_key:
-                    headers["Authorization"] = f"Bearer {api_key}"
+                if api_key: headers["Authorization"] = f"Bearer {api_key}"
                 try:
-                    endpoint = backend_url.rstrip("/") + "/transcribe-query"
-                    resp = requests.post(endpoint, data=data, headers=headers)
-                    if resp.ok:
-                        st.success("✅ Response from backend:")
-                        st.write(resp.json())
+                    r = requests.post(
+                        backend_url.rstrip("/") + "/transcribe-query",
+                        data={"query_text": query.strip()},
+                        headers=headers,
+                        timeout=20
+                    )
+                    if r.ok:
+                        st.success("Backend Response:")
+                        st.write(r.json())
                     else:
-                        st.error(f"Backend error: {resp.text}")
-                except Exception as e:
-                    st.error(f"Error contacting backend: {e}")
+                        st.error(f"Backend error: {r.text}")
+                except Exception as ex:
+                    st.error(f"Backend error: {ex}")
 
-    # --- Tab 2: Audio ---
+    # --- Tab 2: Audio Transcription ---
     with tab2:
-        st.markdown("**Transcribe Audio File (wav/mp3/ogg):**")
+        st.markdown('<div class="tab-head"><span class="tab-icon">🎙️</span><b>Audio File to Text</b></div>', unsafe_allow_html=True)
         audio_file = st.file_uploader(
-            "Drop your audio file here",
+            "Upload audio (wav, mp3, ogg):",
             type=["wav", "mp3", "ogg"],
-            help="Upload a voice note or meeting recording."
+            help="Recordings, notes, meetings — up to 200MB"
         )
-        st.markdown('<div class="hint">🔊 Supports up to 200MB per file.</div>', unsafe_allow_html=True)
         if st.button("Transcribe Audio", key="audio_btn"):
             if not backend_url:
-                st.warning("Please set the API URL in the sidebar.")
+                st.info("Demo mode: No backend URL set. This would contact your backend.")
             elif not audio_file:
-                st.error("Please upload an audio file.")
+                st.warning("Please upload an audio file.")
             else:
-                import requests
-                files = {"audio": (audio_file.name, audio_file, audio_file.type)}
                 headers = {}
-                if api_key:
-                    headers["Authorization"] = f"Bearer {api_key}"
+                if api_key: headers["Authorization"] = f"Bearer {api_key}"
+                files = {"audio": (audio_file.name, audio_file, audio_file.type)}
                 try:
-                    endpoint = backend_url.rstrip("/") + "/transcribe-audio"
-                    resp = requests.post(endpoint, files=files, headers=headers)
-                    if resp.ok:
-                        st.success("📝 Transcription:")
-                        st.write(resp.json())
+                    r = requests.post(
+                        backend_url.rstrip("/") + "/transcribe-audio",
+                        files=files,
+                        headers=headers,
+                        timeout=60
+                    )
+                    if r.ok:
+                        st.success("Transcription Result:")
+                        st.write(r.json())
                     else:
-                        st.error(f"Backend error: {resp.text}")
-                except Exception as e:
-                    st.error(f"Error contacting backend: {e}")
+                        st.error(f"Backend error: {r.text}")
+                except Exception as ex:
+                    st.error(f"Backend error: {ex}")
 
-    # --- Tab 3: Python Code Review ---
+    # --- Tab 3: Multi-extension Code File Review ---
     with tab3:
-        st.markdown("**Upload a Python file for instant code review:**")
-        py_file = st.file_uploader(
-            "Drop your .py file here",
-            type=["py"],
-            help="Upload a Python script for review and display."
+        st.markdown('<div class="tab-head"><span class="tab-icon">📁</span><b>Upload & Preview Code Files</b></div>', unsafe_allow_html=True)
+        code_file = st.file_uploader(
+            "Upload code file (.py, .js, .html, .css, .json, .cpp, .java, .ts, .c, .cs, .go, .rb, .php, .ipynb):",
+            type=["py", "js", "html", "css", "json", "cpp", "java", "ts", "c", "cs", "go", "rb", "php", "ipynb"],
+            help="Paste or drop your code file for preview."
         )
-        st.markdown('<div class="hint">🐍 Only .py files supported.</div>', unsafe_allow_html=True)
-        if py_file:
+        if code_file:
+            file_ext = code_file.name.split('.')[-1].lower()
             try:
-                code_string = py_file.read().decode("utf-8")
-                st.code(code_string, language="python")
-                st.success("Python file uploaded and displayed! 🚀")
-            except Exception as e:
-                st.error(f"Could not read the Python file. Error: {e}")
+                # For Jupyter Notebooks, pretty print as JSON
+                if file_ext == "ipynb":
+                    import json
+                    content = code_file.read().decode("utf-8")
+                    st.json(json.loads(content))
+                else:
+                    content = code_file.read().decode("utf-8")
+                    st.code(content, language=file_ext)
+                st.success(f"{code_file.name} uploaded and displayed.")
+            except Exception as ex:
+                st.error(f"Could not display file: {ex}")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Footer ---
-st.markdown("""
----
-<div style="text-align:center; color:#bbb; font-size:0.92em;">
-Made with ❤️ by <b>Bala Voice AI Debug Assistant</b> | <a style="color:#ffd200;" href="https://github.com/Aryan-del360/-Bala-voice-ai-debug-assistant" target="_blank">GitHub</a>
-</div>
-""", unsafe_allow_html=True)
+st.markdown(
+    """
+    <div style="text-align:center; color:#5A5A89; font-size:0.99em; margin-top:1.1em;">
+    Inspired by <b>Stitch by Google</b> &nbsp;|&nbsp; <a href="https://github.com/Aryan-del360/-Bala-voice-ai-debug-assistant" target="_blank" style="color:#6B7CFF;">GitHub Repo</a>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
