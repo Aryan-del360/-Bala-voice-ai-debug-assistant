@@ -150,6 +150,23 @@ def profile():
         return redirect('/login/google')
     return jsonify(session['user'])
 
+# Do NOT run app.run() when deploying to Streamlit
+# Streamlit handles server execution itself
+
+
+# Optional: Add logout route
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    return redirect('/')
+
+# Optional: Protected route example
+@app.route('/profile')
+def profile():
+    if 'user' not in session:
+        return redirect('/login/google')
+    return jsonify(session['user'])
+
 # MongoDB Helper
 
 def save_message(message_data):
