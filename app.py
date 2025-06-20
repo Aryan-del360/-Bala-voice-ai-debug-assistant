@@ -2,11 +2,12 @@ import streamlit as st
 
 github_token = st.secrets["GITHUB_TOKEN"]
 gitlab_token = st.secrets["GITLAB_TOKEN"]
-
-# For Gmail OAuth (example)
-gmail_client_id = st.secrets["GMAIL_CLIENT_ID"]
-gmail_client_secret = st.secrets["GMAIL_CLIENT_SECRET"]
-gmail_refresh_token = st.secrets["GMAIL_REFRESH_TOKEN"]
+gitlab_project_id = st.secrets["GITLAB_PROJECT_ID"]
+gitlab_url = st.secrets["GITLAB_URL"]
+# For Gmail (if needed)
+gmail_client_id = st.secrets.get("GMAIL_CLIENT_ID", "")
+gmail_client_secret = st.secrets.get("GMAIL_CLIENT_SECRET", "")
+gmail_refresh_token = st.secrets.get("GMAIL_REFRESH_TOKEN", "")
 
 # ------------------ Custom CSS for Vibrant UI ------------------
 st.markdown("""
