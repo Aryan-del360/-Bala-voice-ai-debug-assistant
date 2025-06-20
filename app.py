@@ -154,6 +154,10 @@ def profile():
 # Streamlit handles server execution itself
 
 
+# Do NOT run app.run() when deploying to Streamlit
+# Streamlit handles server execution itself
+
+
 # Optional: Add logout route
 @app.route('/logout')
 def logout():
