@@ -1,5 +1,7 @@
 import os
 import re
+import os
+import re
 import json
 import logging
 import io
@@ -53,6 +55,7 @@ speech_client = speech.SpeechClient()
 # MongoDB
 MONGO_URI = os.environ.get('MONGO_URI')
 mongo_client = None
+mongo_db = None
 if MONGO_URI:
     try:
         mongo_client = MongoClient(MONGO_URI)
@@ -77,6 +80,12 @@ if GITLAB_PRIVATE_TOKEN:
         gitlab_client = None
 else:
     logging.warning("GITLAB_PRIVATE_TOKEN not set. GitLab integration disabled.")
+
+# OAuth Configs
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
+GITLAB_CLIENT_ID = os.environ.get('GITLAB_CLIENT_ID')
+GITLAB_CLIENT_SECRET = os.environ.get('GITLAB_CLIENT_SECRET')
 
 # OAuth Configs
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
