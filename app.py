@@ -2,12 +2,11 @@ import os
 import re
 import json
 import logging
-import io
 from flask import Flask, request, jsonify, session, redirect, url_for
 from flask_cors import CORS
 from authlib.integrations.flask_client import OAuth
 from pymongo import MongoClient
-from bson.objectid import ObjectId
+from bson.objectid import ObjectId, InvalidId
 from datetime import datetime
 
 # Google Cloud Imports
@@ -20,12 +19,11 @@ from vertexai.preview.generative_models import GenerativeModel, Part
 import gitlab
 import gitlab.exceptions
 
-# --- Configuration & Initialization ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__)
 
-# Secure secret key handling
+# Flask secret key from environment only
 secret_key = os.environ.get("FLASK_SECRET_KEY")
 if not secret_key:
     raise RuntimeError("FLASK_SECRET_KEY environment variable not set. Refusing to start.")
@@ -34,7 +32,7 @@ app.secret_key = secret_key
 CORS(app)
 oauth = OAuth(app)
 
-# Google Cloud
+# Google Cloud setup
 GCP_PROJECT_ID = os.environ.get('GCP_PROJECT_ID')
 GCP_REGION = os.environ.get('GCP_REGION', 'us-central1')
 
@@ -56,7 +54,7 @@ SPEECH_SAMPLE_RATE_HERTZ = 48000
 SPEECH_LANGUAGE_CODE = "en-US"
 speech_client = speech.SpeechClient()
 
-# MongoDB
+# MongoDB setup
 MONGO_URI = os.environ.get('MONGO_URI')
 mongo_client = None
 mongo_db = None
@@ -70,7 +68,7 @@ if MONGO_URI:
 else:
     logging.warning("MONGO_URI not set. MongoDB disabled.")
 
-# GitLab API
+# GitLab API setup
 GITLAB_URL = os.environ.get('GITLAB_URL', 'https://gitlab.com')
 GITLAB_PRIVATE_TOKEN = os.environ.get('GITLAB_PRIVATE_TOKEN')
 gitlab_client = None
@@ -100,9 +98,7 @@ oauth.register(
     authorize_url='https://accounts.google.com/o/oauth2/auth',
     api_base_url='https://www.googleapis.com/oauth2/v1/',
     userinfo_endpoint='https://openidconnect.googleapis.com/v1/userinfo',
-    client_kwargs={
-        'scope': 'openid email profile'
-    }
+    client_kwargs={'scope': 'openid email profile'}
 )
 
 # Register GitLab OAuth client
@@ -113,12 +109,9 @@ oauth.register(
     access_token_url='https://gitlab.com/oauth/token',
     authorize_url='https://gitlab.com/oauth/authorize',
     api_base_url='https://gitlab.com/api/v4/',
-    client_kwargs={
-        'scope': 'read_user'
-    }
+    client_kwargs={'scope': 'read_user'}
 )
 
-# OAuth Routes
 @app.route('/login/google')
 def login_google():
     redirect_uri = url_for('authorize_google', _external=True)
@@ -143,20 +136,16 @@ def authorize_gitlab():
     session['user'] = user_info
     return jsonify(user_info)
 
-# Logout route (single definition)
 @app.route('/logout')
 def logout():
     session.pop('user', None)
     return redirect('/')
 
-# Protected route example (single definition)
 @app.route('/profile')
 def profile():
     if 'user' not in session:
         return redirect('/login/google')
     return jsonify(session['user'])
-
-# MongoDB Helper
 
 def save_message(message_data):
     if not mongo_client:
@@ -174,7 +163,6 @@ def get_or_create_conversation(conversation_id_str=None):
     if not mongo_client:
         logging.error("MongoDB not initialized. Cannot get/create conversation.")
         return None
-
     if conversation_id_str:
         try:
             conversation = mongo_db.conversations.find_one({"_id": ObjectId(conversation_id_str)})
@@ -182,7 +170,6 @@ def get_or_create_conversation(conversation_id_str=None):
                 return conversation
         except Exception as e:
             logging.warning(f"Invalid conversation ID or error: {e}. Creating new one.")
-
     new_conversation = {
         "start_time": datetime.utcnow(),
         "title": "New Conversation"
@@ -207,9 +194,8 @@ def fetch_conversation_messages_from_db(conversation_id, limit=10):
         logging.error(f"Error fetching messages from MongoDB: {e}", exc_info=True)
         return []
 
-# ... (rest of your AI, GitLab, and route helper functions stay unchanged) ...
+# ... (Other AI, GitLab, and app logic routes here) ...
 
-# --- Feedback endpoint with robust input validation ---
 @app.route('/feedback', methods=['POST'])
 def save_feedback():
     if not mongo_client:
@@ -218,15 +204,18 @@ def save_feedback():
     if not data:
         logging.error("No JSON body in feedback request.")
         return jsonify({"error": "No data provided"}), 400
-
-    # Defensive checks for required fields
     if 'message_id' not in data or 'feedback_type' not in data:
         logging.error(f"Missing required fields in feedback: {data}")
         return jsonify({"error": "Missing required fields"}), 400
-
     try:
+        # Safely convert to ObjectId and handle invalid input
+        try:
+            message_object_id = ObjectId(data['message_id'])
+        except (InvalidId, TypeError):
+            logging.error(f"Invalid message_id for feedback: {data['message_id']}")
+            return jsonify({"error": "Invalid message_id"}), 400
         feedback_data = {
-            'message_id': ObjectId(data['message_id']),
+            'message_id': message_object_id,
             'feedback_type': data['feedback_type'], # 'like' or 'dislike'
             'timestamp': datetime.utcnow(),
             'comment': data.get('comment')
@@ -238,8 +227,5 @@ def save_feedback():
         logging.error(f"Error saving feedback: {e}", exc_info=True)
         return jsonify({"error": "Failed to save feedback"}), 500
 
-# --- Main App Runner ---
 if __name__ == '__main__':
-    # When running locally, Flask defaults to 127.0.0.1:5000
-    # In Cloud Run, Gunicorn will manage the server, listening on 0.0.0.0:8080
     app.run(debug=True, host='0.0.0.0', port=5000)
