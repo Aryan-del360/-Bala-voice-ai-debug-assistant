@@ -7,3 +7,4 @@ google-cloud-aiplatform
 vertexai
 python-dotenv
 gitpython
+python-gitlab
