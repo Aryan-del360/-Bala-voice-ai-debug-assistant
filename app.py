@@ -1,95 +1,125 @@
 import os
 import re
 import json
-from flask import Flask, request, jsonify
+import logging
+import io
+from flask import Flask, request, jsonify, session, redirect, url_for
 from flask_cors import CORS
+from flask_oauthlib.client import OAuth
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from datetime import datetime
-import logging
-import io # For handling audio byte streams if needed
 
 # Google Cloud Imports
-# Ensure you have the correct versions installed:
-# google-cloud-speech for speech-to-text
-# google-cloud-aiplatform and vertexai for Gemini
-from google.cloud import speech_v1p1beta1 as speech # Or just 'speech'
-from google.cloud.speech_v1p1beta1 import enums # Not strictly needed if using raw enums
+from google.cloud import speech_v1p1beta1 as speech
 from google.cloud import aiplatform
 import vertexai
 from vertexai.preview.generative_models import GenerativeModel, Part
 
-# GitLab Import
+# GitLab API
 import gitlab
 import gitlab.exceptions
 
 # --- Configuration & Initialization ---
-# Set up basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__)
-CORS(app) # Enable CORS for all routes - crucial for frontend running on different port
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "bala_secret_key")
+CORS(app)
+oauth = OAuth(app)
 
-# Google Cloud Project & Region (from environment variables)
+# Google Cloud
 GCP_PROJECT_ID = os.environ.get('GCP_PROJECT_ID')
-GCP_REGION = os.environ.get('GCP_REGION', 'us-central1') # Default region
+GCP_REGION = os.environ.get('GCP_REGION', 'us-central1')
 
-# Initialize Vertex AI / Gemini LLM
 gemini_model = None
 if GCP_PROJECT_ID:
     try:
         vertexai.init(project=GCP_PROJECT_ID, location=GCP_REGION)
-        # Using gemini-1.5-flash-001 for speed and cost-efficiency
         gemini_model = GenerativeModel("gemini-1.5-flash-001")
         logging.info(f"Initialized Vertex AI for project {GCP_PROJECT_ID} in {GCP_REGION}")
     except Exception as e:
         logging.error(f"Failed to initialize Vertex AI: {e}", exc_info=True)
         gemini_model = None
 else:
-    logging.warning("GCP_PROJECT_ID environment variable not set. Gemini LLM will not be available.")
+    logging.warning("GCP_PROJECT_ID not set. Gemini LLM disabled.")
 
-# Google Cloud Speech-to-Text Client
+# Speech-to-Text Config
 SPEECH_AUDIO_ENCODING = speech.RecognitionConfig.AudioEncoding.OGG_OPUS
 SPEECH_SAMPLE_RATE_HERTZ = 48000
 SPEECH_LANGUAGE_CODE = "en-US"
 speech_client = speech.SpeechClient()
 
-
-# MongoDB Client
+# MongoDB
 MONGO_URI = os.environ.get('MONGO_URI')
 mongo_client = None
 if MONGO_URI:
     try:
         mongo_client = MongoClient(MONGO_URI)
-        # Define your database name here, e.g., 'voice_ai_debug_assistant'
         mongo_db = mongo_client.get_database("voice_ai_debug_assistant")
         logging.info("Connected to MongoDB Atlas successfully.")
     except Exception as e:
-        logging.error(f"Failed to connect to MongoDB Atlas: {e}", exc_info=True)
+        logging.error(f"Failed to connect to MongoDB: {e}", exc_info=True)
 else:
-    logging.warning("MONGO_URI environment variable not set. MongoDB integration will be disabled.")
+    logging.warning("MONGO_URI not set. MongoDB disabled.")
 
-
-# GitLab Client
+# GitLab API
 GITLAB_URL = os.environ.get('GITLAB_URL', 'https://gitlab.com')
 GITLAB_PRIVATE_TOKEN = os.environ.get('GITLAB_PRIVATE_TOKEN')
 gitlab_client = None
 if GITLAB_PRIVATE_TOKEN:
     try:
         gitlab_client = gitlab.Gitlab(GITLAB_URL, private_token=GITLAB_PRIVATE_TOKEN)
-        gitlab_client.auth() # Test authentication
+        gitlab_client.auth()
         logging.info(f"Connected to GitLab at {GITLAB_URL}")
     except Exception as e:
         logging.error(f"Could not connect to GitLab: {e}", exc_info=True)
         gitlab_client = None
 else:
-    logging.warning("GITLAB_PRIVATE_TOKEN not set. GitLab integration will be disabled.")
+    logging.warning("GITLAB_PRIVATE_TOKEN not set. GitLab integration disabled.")
 
+# OAuth Configs
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
+GITLAB_CLIENT_ID = os.environ.get('GITLAB_CLIENT_ID')
+GITLAB_CLIENT_SECRET = os.environ.get('GITLAB_CLIENT_SECRET')
 
-# --- MongoDB Helper Functions ---
+google = oauth.remote_app(
+    'google',
+    consumer_key=GOOGLE_CLIENT_ID,
+    consumer_secret=GOOGLE_CLIENT_SECRET,
+    request_token_params={
+        'scope': 'email profile'
+    },
+    base_url='https://www.googleapis.com/oauth2/v1/',
+    request_token_url=None,
+    access_token_method='POST',
+    access_token_url='https://oauth2.googleapis.com/token',
+    authorize_url='https://accounts.google.com/o/oauth2/auth'
+)
+
+@google.tokengetter
+def get_google_token():
+    return session.get('google_token')
+
+@app.route('/login/google')
+def login_google():
+    return google.authorize(callback=url_for('google_callback', _external=True))
+
+@app.route('/auth/google/callback')
+def google_callback():
+    resp = google.authorized_response()
+    if resp is None or resp.get('access_token') is None:
+        return 'Access denied.'
+    session['google_token'] = (resp['access_token'], '')
+    user_info = google.get('userinfo')
+    return f"Logged in as {user_info.data['email']}"
+
+# MongoDB Helper
+
 def save_message(message_data):
     if not mongo_client:
-        logging.error("MongoDB client not initialized. Cannot save message.")
+        logging.error("MongoDB not initialized. Cannot save message.")
         return None
     try:
         result = mongo_db.messages.insert_one(message_data)
@@ -101,8 +131,25 @@ def save_message(message_data):
 
 def get_or_create_conversation(conversation_id_str=None):
     if not mongo_client:
-        logging.error("MongoDB client not initialized. Cannot get/create conversation.")
+        logging.error("MongoDB not initialized. Cannot get/create conversation.")
         return None
+
+    if conversation_id_str:
+        try:
+            conversation = mongo_db.conversations.find_one({"_id": ObjectId(conversation_id_str)})
+            if conversation:
+                return conversation
+        except Exception as e:
+            logging.warning(f"Invalid conversation ID or error: {e}. Creating new one.")
+
+    new_conversation = {
+        "start_time": datetime.utcnow(),
+        "title": "New Conversation"
+    }
+    result = mongo_db.conversations.insert_one(new_conversation)
+    logging.info(f"New conversation created with ID: {result.inserted_id}")
+    return new_conversation
+
 
     if conversation_id_str:
         try:
