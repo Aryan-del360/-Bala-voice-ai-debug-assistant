@@ -1,229 +1,130 @@
 import streamlit as st
 
-# --------- Session State Initialization ---------
-if "projects" not in st.session_state:
-    st.session_state.projects = []
-if "selected_project" not in st.session_state:
-    st.session_state.selected_project = None
-if "github_token" not in st.session_state:
-    st.session_state.github_token = ""
-if "gitlab_token" not in st.session_state:
-    st.session_state.gitlab_token = ""
-if "gmail_logged_in" not in st.session_state:
-    st.session_state.gmail_logged_in = False
-if "editor_content" not in st.session_state:
-    st.session_state.editor_content = ""
-if "editor_history" not in st.session_state:
-    st.session_state.editor_history = []
-if "ci_cd_yaml" not in st.session_state:
-    st.session_state.ci_cd_yaml = ""
-if "ci_cd_history" not in st.session_state:
-    st.session_state.ci_cd_history = []
-if "ui_mode" not in st.session_state:
-    st.session_state.ui_mode = "Home"
-
-# --------- CSS Styling for Modern UI ---------
+# ------------------ Custom CSS for Vibrant UI ------------------
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
-html, body, [class*="css"] { font-family: 'Inter', 'Noto Sans', sans-serif !important; }
-.sidebar-title { font-size: 1.6rem; font-weight: 900; margin-bottom: 2.5rem; color: #0c7ff2; }
-.top-bar { display: flex; align-items: center; gap: 1.5em; background: #fff; padding: 1em 2em; border-radius: 0 0 18px 18px; box-shadow: 0 2px 8px #0c7ff210; margin-bottom: 1em;}
-.top-bar input { flex: 1; padding: 0.5em 1em; border-radius: 7px; border: 1px solid #dbe0e6; }
-.project-card { background: #fff; border-radius: 18px; box-shadow: 0 2px 10px #0001; padding: 1.2em; transition: box-shadow 0.2s;}
-.project-card.selected, .project-card:hover { box-shadow: 0 4px 20px #0c7ff220; border: 1.5px solid #0c7ff2; }
-.pin-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; color: #f59e0b; float: right;}
-.tab-header { font-size: 1.1rem; font-weight: 600; color: #0c7ff2; margin-bottom: 1em; }
-.progress-bar-bg { background: #dbe0e6; border-radius: 7px; height: 13px; }
-.progress-bar-fill { background: #0c7ff2; border-radius: 7px; height: 13px; transition: width 0.5s;}
-.action-btn { background: #0c7ff2; color: #fff; border-radius: 8px; padding: 0.3em 1.2em; font-weight: 700; border: none; margin: 0.2em;}
-.action-btn:hover { background: #095dbf;}
-input[type="file"] { color: #111418 !important; }
-hr {margin-top: 2em; margin-bottom: 1em;}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; background: linear-gradient(120deg, #6b47ff 0%, #0c7ff2 100%);}
+.sidebar {background: #fff !important;}
+.sidebar-title { font-size: 2.1rem; font-weight: 900; margin-bottom: 1.5rem; color: #0c7ff2;}
+.nav-link { display: flex; align-items: center; font-size: 1.15rem; font-weight: 700; color: #222; border-radius: 10px; margin: 0.4em 0; padding: 0.7em 1em; transition: background 0.18s;}
+.nav-link:hover, .nav-link.selected { background: #e0e7ff; color: #6b47ff;}
+.fab { position: fixed; bottom: 34px; right: 34px; background: linear-gradient(90deg, #0c7ff2, #6b47ff); color: #fff; border-radius: 50%; width: 62px; height: 62px; font-size: 2.1em; box-shadow: 0 7px 25px #6b47ff44; border: none; cursor: pointer; z-index: 9;}
+.card { background: #fff; border-radius: 18px; box-shadow: 0 2px 16px #0001; padding: 1.5em; margin-bottom: 1.2em;}
+.project-badge { background: #22d3ee22; color: #0891b2; font-weight: 600; border-radius: 7px; padding: 0.2em 0.7em; margin-left: 0.6em;}
+.action-btn { background: linear-gradient(90deg, #0c7ff2, #6b47ff); color: #fff; border-radius: 8px; border: none; font-weight: 700; padding: 0.45em 1.7em; margin: 0.2em 0.5em; transition: transform 0.11s;}
+.action-btn:hover { transform: scale(1.08);}
+.status-badge { padding: 0.2em 0.8em; border-radius: 8px; color: #fff; font-weight: 700; font-size: 0.92em;}
+.status-success { background: #22c55e;}
+.status-fail { background: #f87171;}
+.status-running { background: #fbbf24; color: #18181b;}
+.progress-bar-bg { background: #e5e7eb; border-radius: 7px; height: 13px;}
+.progress-bar-fill { background: linear-gradient(90deg, #0c7ff2, #6b47ff); border-radius: 7px; height: 13px; transition: width 0.5s;}
+.avatar { border-radius: 50%; width: 40px; height: 40px; object-fit: cover; margin-right: 0.7em;}
+hr {margin-top: 1.2em; margin-bottom: 1.2em;}
 </style>
 """, unsafe_allow_html=True)
 
-# --------- Top Bar: Global Search & Quick Actions ---------
-with st.container():
-    st.markdown('<div class="top-bar">', unsafe_allow_html=True)
-    search = st.text_input("🔎 Search projects/files/team...", key="search_global", label_visibility="collapsed", placeholder="Search projects, files, team...")
-    st.button("➕ New Project", on_click=lambda: st.session_state.update(ui_mode="NewProject"), use_container_width=False)
-    st.button("📁 Select Project", on_click=lambda: st.session_state.update(ui_mode="SelectProject"), use_container_width=False)
-    st.button("📤 Upload File", on_click=lambda: st.session_state.update(ui_mode="Editor"), use_container_width=False)
-    st.button("📌 Pinned", on_click=lambda: st.session_state.update(ui_mode="Pinned"), use_container_width=False)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# --------- Sidebar Navigation ---------
-st.sidebar.markdown('<div class="sidebar-title">Bala Coding Agent</div>', unsafe_allow_html=True)
-ui_page = st.sidebar.radio(
-    "Navigate", ["Home", "Projects", "Editor", "CI/CD", "Integrations", "Settings"],
-    index=["Home", "Projects", "Editor", "CI/CD", "Integrations", "Settings"].index(st.session_state.get("ui_mode", "Home"))
+# ------------------ Sidebar Navigation ------------------
+st.sidebar.markdown('<div class="sidebar-title">Bala Agent</div>', unsafe_allow_html=True)
+nav = st.sidebar.radio(
+    "", ["Home", "Projects", "Editor", "Pipelines", "Integrations", "Settings"],
+    format_func=lambda x: f"🏠 {x}" if x == "Home" else f"📁 {x}" if x == "Projects" else f"📝 {x}" if x == "Editor" else f"🚀 {x}" if x == "Pipelines" else f"🔗 {x}" if x == "Integrations" else f"⚙️ {x}"
 )
-st.session_state.ui_mode = ui_page
 
-# --------- Gmail / GitHub / GitLab Login Buttons ---------
-def show_integrations():
-    st.header("Integrations")
-    st.subheader("Gmail (Google) Login")
-    if st.session_state.gmail_logged_in:
-        st.success("Gmail connected!")
-    elif st.button("🔗 Login with Gmail"):
-        # TODO: Insert OAuth logic here
-        st.session_state.gmail_logged_in = True
-        st.success("Gmail connected (stub).")
-    st.subheader("GitHub Login")
-    if st.session_state.github_token:
-        st.success("GitHub connected.")
-    else:
-        token = st.text_input("GitHub Token", type="password", key="github_token_input")
-        if st.button("Connect GitHub"):
-            st.session_state.github_token = token.strip()
-            st.success("GitHub connected (stub).")
-    st.subheader("GitLab Login")
-    if st.session_state.gitlab_token:
-        st.success("GitLab connected.")
-    else:
-        token = st.text_input("GitLab Token", type="password", key="gitlab_token_input")
-        if st.button("Connect GitLab"):
-            st.session_state.gitlab_token = token.strip()
-            st.success("GitLab connected (stub).")
+# ------------------ Top Bar ------------------
+st.markdown("""
+<div style='display: flex; align-items: center; justify-content: space-between; background: #fff9; padding: 1.2em 2em; border-radius: 0 0 17px 17px; box-shadow: 0 2px 8px #0c7ff215; margin-bottom: 1em;'>
+    <input style="flex:1; font-size:1.1em; border-radius:7px; border:1px solid #dbe0e6; padding:0.5em 1em; margin-right:2em;" placeholder="🔎 Search projects, files, team..."/>
+    <button class="action-btn">➕ New Project</button>
+    <button class="action-btn">⬆️ Import</button>
+    <button class="action-btn">📤 Upload File</button>
+</div>
+""", unsafe_allow_html=True)
 
-# --------- Project Management ---------
-def list_projects(pinned_only=False):
-    projs = [p for p in st.session_state.projects if p.get("pinned")] if pinned_only else st.session_state.projects
-    grid = st.columns(3)
-    for i, p in enumerate(projs):
-        with grid[i % 3]:
-            sel = st.button("Open", key=f"open_proj_{i}", help="Open this project")
-            pin = st.button("📌" if not p["pinned"] else "Unpin", key=f"pin_proj_{i}")
-            if pin:
-                p["pinned"] = not p["pinned"]
-            if sel:
-                st.session_state.selected_project = i
-                st.session_state.ui_mode = "Projects"
+# ------------------ Home/Dashboard ------------------
+if nav == "Home":
+    st.markdown("<h1 style='color:#0c7ff2'>Welcome to Bala Coding Agent!</h1>", unsafe_allow_html=True)
+    # Example dynamic project cards
+    cols = st.columns(3)
+    for i, (name, badge, status) in enumerate([("Alpha", "Avengers", "success"), ("Beta", "Justice League", "fail"), ("Gamma", "X-Men", "running")]):
+        with cols[i]:
             st.markdown(
-                f"<div class='project-card{' selected' if st.session_state.selected_project==i else ''}'>"
-                f"<b>{p['name']}</b> {'📌' if p['pinned'] else ''}<br>"
-                f"<span class='team-badge'>Edits: {len(p['history'])}</span><br>{p['desc']}</div>",
+                f"<div class='card'><b>{name}</b> <span class='project-badge'>{badge}</span><br>"
+                f"<span class='status-badge status-{status}'>"
+                f"{'Success' if status=='success' else 'Failure' if status=='fail' else 'Running'}</span></div>",
                 unsafe_allow_html=True
             )
+    st.markdown("<hr>", unsafe_allow_html=True)
 
-def create_new_project():
-    with st.form("new_proj_form"):
-        pname = st.text_input("Project Name")
-        pdesc = st.text_area("Description")
-        pin = st.checkbox("Pin project")
-        submit = st.form_submit_button("Create Project")
-        if submit and pname:
-            st.session_state.projects.append({"name": pname, "desc": pdesc, "pinned": pin, "history": []})
-            st.success(f"Created project '{pname}'")
-            st.session_state.ui_mode = "Projects"
+# ------------------ Project Dashboard ------------------
+elif nav == "Projects":
+    st.markdown("<h2 style='color:#6b47ff'>Project Dashboard</h2>", unsafe_allow_html=True)
+    st.button("➕ New Project", key="newprojbtn", help="Create a new project", use_container_width=True)
+    st.markdown("<div class='card'>[Dynamic Project List with actions here]</div>", unsafe_allow_html=True)
 
-def select_project():
-    if not st.session_state.projects:
-        st.info("No projects. Create a new one.")
-        return
-    idx = st.selectbox("Select Project", list(range(len(st.session_state.projects))),
-                       format_func=lambda i: st.session_state.projects[i]["name"])
-    st.session_state.selected_project = idx
-    st.session_state.ui_mode = "Projects"
+# ------------------ Editor with Minimap and Git Integration ------------------
+elif nav == "Editor":
+    st.markdown("<h2 style='color:#6b47ff'>Editor</h2>", unsafe_allow_html=True)
+    st.markdown("**Current Project:** Alpha (pulls from GitHub/GitLab)")
+    col1, col2 = st.columns([4,1])
+    with col1:
+        code = st.text_area("Edit your code", height=350, value="# Write Python here")
+    with col2:
+        st.markdown("<div style='background:#eef2ff; border-radius:10px; min-height:320px; padding:0.7em;'>[Minimap]</div>", unsafe_allow_html=True)
+    st.button("💾 Save", use_container_width=True)
+    st.button("⬆️ Push to Repo", use_container_width=True)
+    st.button("⬇️ Pull from Repo", use_container_width=True)
 
-# --------- Editor ---------
-def editor_page():
-    st.header("Editor")
-    uploaded = st.file_uploader("Upload code file", type=["py","js","html","json","yaml","yml","sh","c","cpp","java","ts","rb","php","cs","go","ipynb"])
-    if uploaded:
-        try:
-            content = uploaded.read().decode("utf-8")
-            st.session_state.editor_content = content
-            st.success("File uploaded!")
-        except Exception:
-            st.error("Could not read as text.")
-    code = st.text_area("Edit your code:", value=st.session_state.editor_content, height=300)
-    if st.button("Save to Project History"):
-        idx = st.session_state.selected_project
-        if idx is not None:
-            st.session_state.projects[idx]["history"].append(code)
-            st.session_state.editor_history.append(code)
-            st.success("Saved to project history.")
-    if st.button("Pin this Project", key="pin_editor"):
-        idx = st.session_state.selected_project
-        if idx is not None:
-            st.session_state.projects[idx]["pinned"] = True
-            st.success("Project pinned.")
+# ------------------ Pipelines ------------------
+elif nav == "Pipelines":
+    st.markdown("<h2 style='color:#6b47ff'>CI/CD Pipelines</h2>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='card'>
+        <b>Visual Pipeline:</b><br>
+        <span class='status-badge status-success'>Build</span>
+        <span class='status-badge status-running'>Test</span>
+        <span class='status-badge status-fail'>Deploy</span>
+        <br><br>
+        <textarea style='width:100%;height:6em;border-radius:7px;'># Paste/Edit your GitLab CI YAML here</textarea>
+        <br>
+        <button class='action-btn'>🤖 AI Auto-Correct</button>
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown("#### History")
-    idx = st.session_state.selected_project
-    if idx is not None:
-        for i, h in enumerate(st.session_state.projects[idx].get("history", [])[-5:][::-1]):
-            st.code(h[:200]+("..." if len(h)>200 else ""), language="python")
+# ------------------ Integrations ------------------
+elif nav == "Integrations":
+    st.markdown("<h2 style='color:#6b47ff'>Integrations</h2>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='card'>
+        <b>Gmail:</b> <button class='action-btn'>Login with Google</button><br>
+        <b>GitHub:</b> <button class='action-btn'>Connect GitHub</button><br>
+        <b>GitLab:</b> <button class='action-btn'>Connect GitLab</button><br>
+        <i>Once connected, you can pull/push code and pipelines directly from/to your repos!</i>
+    </div>
+    """, unsafe_allow_html=True)
 
-# --------- CI/CD Page ---------
-def cicd_page():
-    st.header("CI/CD Pipeline")
-    st.info("Connect GitLab above for full features.")
-    yaml = st.text_area("Paste your GitLab CI/CD YAML for AI correction",
-                        value=st.session_state.ci_cd_yaml, height=150)
-    if st.button("AI Correct Pipeline"):
-        # TODO: Replace with Gemini/LLM integration
-        st.session_state.ci_cd_history.append({"input": yaml, "output": "AI-corrected YAML here."})
-        st.success("Pipeline corrected! (stub)")
-    st.markdown("#### History")
-    for h in st.session_state.ci_cd_history[-5:][::-1]:
-        st.code(h["input"], language="yaml")
-        st.success(h["output"])
+# ------------------ Settings ------------------
+elif nav == "Settings":
+    st.markdown("<h2 style='color:#6b47ff'>Settings</h2>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='card'>
+        <b>Profile:</b><br>
+        Name: <input style='margin-left:1em;'><br>
+        Email: <input style='margin-left:1em;'><br>
+        <b>Preferences, Notifications, Team Setup, etc. here</b>
+        <hr>
+        <div class='progress-bar-bg'><div class='progress-bar-fill' style='width: 75%;'></div></div>
+        <span>Profile Completion: 75%</span>
+    </div>
+    """, unsafe_allow_html=True)
 
-# --------- Main UI Routing ---------
-if ui_page == "Home":
-    st.header("Welcome to Bala Coding Agent!")
-    st.caption("Search, jump to projects, upload files, or use integrations from above. All features are dynamic. Use the sidebar to switch modules.")
-    list_projects()
-elif ui_page == "Pinned":
-    st.header("Pinned Projects")
-    list_projects(pinned_only=True)
-elif ui_page == "NewProject":
-    st.header("New Project")
-    create_new_project()
-elif ui_page == "SelectProject":
-    st.header("Select Project")
-    select_project()
-elif ui_page == "Projects":
-    idx = st.session_state.selected_project
-    if idx is None or idx >= len(st.session_state.projects):
-        st.info("No project selected.")
-    else:
-        p = st.session_state.projects[idx]
-        st.header(f"{p['name']} Dashboard")
-        tabs = st.tabs(["Overview", "Files", "Team", "CI/CD", "History"])
-        with tabs[0]:
-            st.write(p['desc'])
-            st.success(f"Pinned: {'Yes' if p['pinned'] else 'No'}")
-        with tabs[1]:
-            st.write("Upload, browse, and edit files in Editor section.")
-        with tabs[2]:
-            st.write("Team management (invite, roles) coming soon.")
-        with tabs[3]:
-            cicd_page()
-        with tabs[4]:
-            st.write("Recent saves:")
-            for h in p["history"][-5:][::-1]:
-                st.code(h[:200]+("..." if len(h)>200 else ""), language="python")
+# Floating Action Button (New Project)
+st.markdown("<button class='fab' title='New Project'>+</button>", unsafe_allow_html=True)
 
-elif ui_page == "Editor":
-    editor_page()
-elif ui_page == "CI/CD":
-    cicd_page()
-elif ui_page == "Integrations":
-    show_integrations()
-elif ui_page == "Settings":
-    st.header("Settings")
-    st.write("Profile, preferences, notifications, integrations.")
-    show_integrations()
-
-st.markdown('<hr>')
 st.markdown(
-    '<div style="text-align:center; color:#60758a; font-size:0.95em;">'
-    'Inspired by Gemini Canvas & Stitch UI · <a href="https://github.com/Aryan-del360/-Bala-voice-ai-debug-assistant" target="_blank" style="color:#0c7ff2;">GitHub Repo</a>'
-    '</div>',
+    "<hr><div style='text-align:center; color:#6b47ff; font-size:1em;'>"
+    "Bala Coding Agent &copy; 2025 · <a href='https://github.com/Aryan-del360/-Bala-voice-ai-debug-assistant' target='_blank'>GitHub</a>"
+    "</div>",
     unsafe_allow_html=True
 )
