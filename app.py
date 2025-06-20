@@ -1,7 +1,5 @@
 import os
 import re
-import os
-import re
 import json
 import logging
 import io
@@ -87,42 +85,70 @@ GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
 GITLAB_CLIENT_ID = os.environ.get('GITLAB_CLIENT_ID')
 GITLAB_CLIENT_SECRET = os.environ.get('GITLAB_CLIENT_SECRET')
 
-# OAuth Configs
-GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
-GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
-GITLAB_CLIENT_ID = os.environ.get('GITLAB_CLIENT_ID')
-GITLAB_CLIENT_SECRET = os.environ.get('GITLAB_CLIENT_SECRET')
-
-google = oauth.remote_app(
-    'google',
-    consumer_key=GOOGLE_CLIENT_ID,
-    consumer_secret=GOOGLE_CLIENT_SECRET,
-    request_token_params={
-        'scope': 'email profile'
-    },
-    base_url='https://www.googleapis.com/oauth2/v1/',
-    request_token_url=None,
-    access_token_method='POST',
+# Register Google OAuth client
+oauth.register(
+    name='google',
+    client_id=GOOGLE_CLIENT_ID,
+    client_secret=GOOGLE_CLIENT_SECRET,
     access_token_url='https://oauth2.googleapis.com/token',
-    authorize_url='https://accounts.google.com/o/oauth2/auth'
+    authorize_url='https://accounts.google.com/o/oauth2/auth',
+    api_base_url='https://www.googleapis.com/oauth2/v1/',
+    userinfo_endpoint='https://openidconnect.googleapis.com/v1/userinfo',
+    client_kwargs={
+        'scope': 'openid email profile'
+    }
 )
 
-@google.tokengetter
-def get_google_token():
-    return session.get('google_token')
+# Register GitLab OAuth client
+oauth.register(
+    name='gitlab',
+    client_id=GITLAB_CLIENT_ID,
+    client_secret=GITLAB_CLIENT_SECRET,
+    access_token_url='https://gitlab.com/oauth/token',
+    authorize_url='https://gitlab.com/oauth/authorize',
+    api_base_url='https://gitlab.com/api/v4/',
+    client_kwargs={
+        'scope': 'read_user'
+    }
+)
 
+# OAuth Routes
 @app.route('/login/google')
 def login_google():
-    return google.authorize(callback=url_for('google_callback', _external=True))
+    redirect_uri = url_for('authorize_google', _external=True)
+    return oauth.google.authorize_redirect(redirect_uri)
 
-@app.route('/auth/google/callback')
-def google_callback():
-    resp = google.authorized_response()
-    if resp is None or resp.get('access_token') is None:
-        return 'Access denied.'
-    session['google_token'] = (resp['access_token'], '')
-    user_info = google.get('userinfo')
-    return f"Logged in as {user_info.data['email']}"
+@app.route('/authorize/google')
+def authorize_google():
+    token = oauth.google.authorize_access_token()
+    user_info = oauth.google.parse_id_token(token)
+    session['user'] = user_info
+    return jsonify(user_info)
+
+@app.route('/login/gitlab')
+def login_gitlab():
+    redirect_uri = url_for('authorize_gitlab', _external=True)
+    return oauth.gitlab.authorize_redirect(redirect_uri)
+
+@app.route('/authorize/gitlab')
+def authorize_gitlab():
+    token = oauth.gitlab.authorize_access_token()
+    user_info = oauth.gitlab.get('user').json()
+    session['user'] = user_info
+    return jsonify(user_info)
+
+# Optional: Add logout route
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    return redirect('/')
+
+# Optional: Protected route example
+@app.route('/profile')
+def profile():
+    if 'user' not in session:
+        return redirect('/login/google')
+    return jsonify(session['user'])
 
 # MongoDB Helper
 
