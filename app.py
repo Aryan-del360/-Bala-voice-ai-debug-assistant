@@ -7,7 +7,7 @@ import logging
 import io
 from flask import Flask, request, jsonify, session, redirect, url_for
 from flask_cors import CORS
-from flask_oauthlib.client import OAuth
+from authlib.integrations.flask_client import OAuth
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from datetime import datetime
