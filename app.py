@@ -207,7 +207,36 @@ def fetch_conversation_messages_from_db(conversation_id, limit=10):
         logging.error(f"Error fetching messages from MongoDB: {e}", exc_info=True)
         return []
 
-# ... (rest of the file remains unchanged) ...
+# ... (rest of your AI, GitLab, and route helper functions stay unchanged) ...
+
+# --- Feedback endpoint with robust input validation ---
+@app.route('/feedback', methods=['POST'])
+def save_feedback():
+    if not mongo_client:
+        return jsonify({"error": "MongoDB not connected."}), 500
+    data = request.get_json()
+    if not data:
+        logging.error("No JSON body in feedback request.")
+        return jsonify({"error": "No data provided"}), 400
+
+    # Defensive checks for required fields
+    if 'message_id' not in data or 'feedback_type' not in data:
+        logging.error(f"Missing required fields in feedback: {data}")
+        return jsonify({"error": "Missing required fields"}), 400
+
+    try:
+        feedback_data = {
+            'message_id': ObjectId(data['message_id']),
+            'feedback_type': data['feedback_type'], # 'like' or 'dislike'
+            'timestamp': datetime.utcnow(),
+            'comment': data.get('comment')
+        }
+        mongo_db.feedback.insert_one(feedback_data)
+        logging.info(f"Feedback received for message {data['message_id']}: {data['feedback_type']}")
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        logging.error(f"Error saving feedback: {e}", exc_info=True)
+        return jsonify({"error": "Failed to save feedback"}), 500
 
 # --- Main App Runner ---
 if __name__ == '__main__':
