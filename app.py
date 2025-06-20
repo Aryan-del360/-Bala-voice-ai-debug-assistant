@@ -14,7 +14,8 @@ import io # For handling audio byte streams if needed
 # google-cloud-speech for speech-to-text
 # google-cloud-aiplatform and vertexai for Gemini
 from google.cloud import speech_v1p1beta1 as speech # Or just 'speech'
-from google.cloud.speech_v1p1beta1 import enums # Not strictly needed if using raw enums
+from google.cloud import speech_v1p1beta1 as speech 
+speech.RecognitionConfig.AudioEncoding.LINEAR16
 from google.cloud import aiplatform
 import vertexai
 from vertexai.preview.generative_models import GenerativeModel, Part
