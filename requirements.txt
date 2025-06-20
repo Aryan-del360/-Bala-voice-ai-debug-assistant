@@ -1,9 +1,9 @@
-Flask
-Flask-CORS
+flask
+flask-cors
+authlib
 pymongo
-dnspython
-gunicorn
 google-cloud-speech
 google-cloud-aiplatform
 vertexai
-python-gitlab
+python-dotenv
+gitpython
