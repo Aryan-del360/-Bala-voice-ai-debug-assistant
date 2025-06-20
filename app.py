@@ -13,7 +13,6 @@ import io # For handling audio byte streams if needed
 # Ensure you have the correct versions installed:
 # google-cloud-speech for speech-to-text
 # google-cloud-aiplatform and vertexai for Gemini
-from google.cloud import speech_v1p1beta1 as speech # Or just 'speech'
 from google.cloud import speech_v1p1beta1 as speech 
 speech.RecognitionConfig.AudioEncoding.LINEAR16
 from google.cloud import aiplatform
